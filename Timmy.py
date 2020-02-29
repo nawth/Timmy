@@ -76,7 +76,7 @@ async def on_message(message):
         war_len = war_ins[0] * minute_length
         wait_len = war_ins[1] * minute_length
         this_war = War(name, message.author, time.time() + wait_len, time.time() + wait_len + war_len)
-        wars[name] = this_war
+        wars[name.lower()] = this_war
 
         await post_message(message.channel, f'War: {name} is starting in {convert_time_difference_to_str(wait_len)}')
         if wait_len >= 5 * minute_length:
@@ -119,8 +119,8 @@ async def on_message(message):
     if message_string.startswith('!endwar') and in_slagmark(message):
         name = message.content.split()
         name = get_name_string(name[1:], message)
-        if name in wars:
-            if wars[name].user == message.author:
+        if name.lower() in wars:
+            if wars[name].user == message.author or is_role(message.author, admin_roles):
                 wars.pop(name)
                 msgout = f'War {name} cancelled'
             else:
