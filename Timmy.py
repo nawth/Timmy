@@ -473,11 +473,8 @@ async def on_ready():
 
         await client.change_presence(activity=discord.Game(name=status))
         print('Yay')
-        print(day)
         time_past_midnight = day[3]*3600 + day[4]*60 + day[5]
-        print(time_past_midnight)
         time_to_midnight = 86400 - time_past_midnight
-        print(time_to_midnight)
         await asyncio.sleep(time_to_midnight)
 
 
