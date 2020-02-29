@@ -357,7 +357,7 @@ async def on_message(message):
             try:
                 await post_message(message.channel, commands[incommand[1]]())
             except TypeError:
-                await post_message(message.channel, (commands[incommand[1]]))
+                await post_message(message.channel, commands[incommand[1]])
 
 
 async def post_message(channel, msgin):
@@ -465,6 +465,7 @@ def get_word_count():
 @client.event
 async def on_ready():
     while True:
+        print('Yay')
         day = time.localtime()
         if day[1] == november:
             status = f'Goal: {get_word_count()}'
@@ -472,7 +473,6 @@ async def on_ready():
             status = get_prompt()
 
         await client.change_presence(activity=discord.Game(name=status))
-        print('Yay')
         time_past_midnight = day[3]*3600 + day[4]*60 + day[5]
         time_to_midnight = 86400 - time_past_midnight
         await asyncio.sleep(time_to_midnight)
