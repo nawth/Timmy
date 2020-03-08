@@ -69,8 +69,9 @@ async def on_message(message):
         war_ins, str_start = split_input_variables(msgin[1:], war_defaults)
 
         name = get_name_string(msgin[str_start:], message)
-        if name in wars:
-            await message.channel.send('A war with that name already exists, please use a different name or end the current war.')
+        if name.lower() in wars:
+            await message.channel.send('A war with that name already exists, please use a different name or end the'
+                                       ' current war.')
             return
 
         war_len = war_ins[0] * minute_length
@@ -114,15 +115,15 @@ async def on_message(message):
             if in_war(name, this_war):
                 user_mentions = await get_reactions_as_mentions(message, False)
                 await post_message(message.channel, f'War: {name} has ended! {user_mentions}')
-                wars.pop(name)
+                wars.pop(name.lower())
 
     if message_string.startswith('!endwar') and in_slagmark(message):
         name = message.content.split()
-        name = get_name_string(name[1:], message)
-        if name.lower() in wars:
+        name = get_name_string(name[1:], message).lower()
+        if name in wars:
             if wars[name].user == message.author or is_role(message.author, admin_roles):
-                wars.pop(name)
-                msgout = f'War {name} cancelled'
+                war = wars.pop(name)
+                msgout = f'War {war.name} cancelled'
             else:
                 msgout = 'You can only end your own wars.'
         else:
@@ -347,7 +348,22 @@ async def on_message(message):
                 k = 0
         await post_message(message.channel, msg)
 
+    # !Remind
+    if message_string.startswith("!remind"):
+        msgin = message_string.split()
+        try:
+            wait = float(msgin[1])*60
+        except ValueError:
+            await message.channel.send('Please provide a number for how long until you want to be reminded in minutes')
+            return
+
+        msgout = get_name_string(msgin[2:], message)
+        await asyncio.sleep(wait)
+        await post_message(message.channel, msgout)
+
+
     # !reply
+    # TODO: fix !starwar ...
     elif message_string.startswith('!'):
         incommand = message.content.lower().split('!')
         if incommand[1] in commands:
@@ -445,8 +461,8 @@ def split_input_variables(list_of_strings, list_of_vars):
 
 
 def in_war(name, war):
-    if name in wars:
-        if wars[name] == war:
+    if name.lower() in wars:
+        if wars[name.lower()] == war:
             return True
     return False
 
@@ -464,8 +480,8 @@ def get_word_count():
 
 @client.event
 async def on_ready():
+    print('Yay')
     while True:
-        print('Yay')
         day = time.localtime()
         if day[1] == november:
             status = f'Goal: {get_word_count()}'
