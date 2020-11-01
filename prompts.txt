@@ -553,3 +553,5 @@ Mist
 Recoil
 Thin Ice
 Last Chance
+Waterwaffle
+Unexplored Cow
