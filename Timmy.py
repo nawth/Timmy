@@ -4,7 +4,10 @@ import time
 import random
 import heapq
 
-client = discord.Client()
+intents = discord.Intents.default()
+intents.members = True
+
+client = discord.Client(intents=intents)
 
 
 class War:
@@ -26,12 +29,13 @@ class War:
 
 
 class Event:
-    def __init__(self, name, channel):
+    def __init__(self, name, channel, tts):
         self.name = name
         self.channel = channel
         self.events = []
         heapq.heapify(self.events)
         self.current = []
+        self.tts = tts
 
     def __contains__(self, item):
         if item in self.events or item in self.current:
@@ -56,7 +60,7 @@ class Event:
             wait = event_time - time.time()
             await asyncio.sleep(wait)
             self.current.remove(event_time)
-            await post_message(self.channel, self.name)
+            await post_message(self.channel, self.name, self.tts)
 
 
 @client.event
@@ -85,16 +89,17 @@ async def on_message(message):
             await asyncio.sleep(wait_len - delay_countdown)
             if in_war(name, this_war):
                 user_mentions = await get_reactions_as_mentions(message, False)
-                await post_message(message.channel, f'War: {name} starts in {convert_time_difference_to_str(delay_countdown)}'
-                                                    f' Get ready! {user_mentions}')
+                await post_message(message.channel, f'War: {name} starts in '
+                                                    f'{convert_time_difference_to_str(delay_countdown)}. '
+                                                    f'Get ready! {user_mentions}')
                 await asyncio.sleep(delay_countdown)
         else:
             await asyncio.sleep(wait_len)
 
         if in_war(name, this_war):
             user_mentions = await get_reactions_as_mentions(message, False)
-            await post_message(message.channel, f'Start! War: {name} is on for {convert_time_difference_to_str(war_len)}'
-                                                f' {user_mentions}')
+            await post_message(message.channel, f'Start! War: {name} is on for '
+                                                f'{convert_time_difference_to_str(war_len)}. {user_mentions}')
 
             for interval in war_len_intervals:
                 if not in_war(name, this_war):
@@ -109,12 +114,12 @@ async def on_message(message):
                         return
                     war_len = interval
                     user_mentions = await get_reactions_as_mentions(message, True)
-                    await post_message(message.channel, f'War: {name} has {convert_time_difference_to_str(war_len)}'
-                                                        f' remaining. {user_mentions}')
+                    await post_message(message.channel, f'War: {name} has {convert_time_difference_to_str(war_len)} '
+                                                        f'remaining. {user_mentions}')
 
             if in_war(name, this_war):
                 user_mentions = await get_reactions_as_mentions(message, False)
-                await post_message(message.channel, f'War: {name} has ended! {user_mentions}')
+                await post_message(message.channel, f'War: {name} has ended! {user_mentions}', tts=True)
                 wars.pop(name.lower())
 
     if message_string.startswith('!endwar') and in_slagmark(message):
@@ -230,6 +235,12 @@ async def on_message(message):
             msg = get_name_string(msg[1:], message)
 
             if msg != '':
+                if msg[0:3] == 'tts':
+                    tts = True
+                    msg = msg[3:]
+                else:
+                    tts = False
+
                 time_in = str(msgin[1]).replace('}', '')
                 time_in = time_in.split(', ')
 
@@ -244,7 +255,7 @@ async def on_message(message):
                                     events[msg].push(converted_time)
                                     await post_message(message.channel, f'Event {msg} set for {date}')
                             else:
-                                events[msg] = Event(msg, message.channel)
+                                events[msg] = Event(msg, message.channel, tts)
                                 events[msg].push(converted_time)
                                 await post_message(message.channel, f'Event {msg} set for {date}')
                         else:
@@ -363,7 +374,6 @@ async def on_message(message):
 
 
     # !reply
-    # TODO: fix !starwar ...
     elif message_string.startswith('!'):
         incommand = message.content.lower().split('!')
         if incommand[1] in commands:
@@ -376,20 +386,20 @@ async def on_message(message):
                 await post_message(message.channel, commands[incommand[1]])
 
 
-async def post_message(channel, msgin):
+async def post_message(channel, msgin, tts=False):
     if msgin == '':
         return
-    if len(msgin) < char_limit:
-        await channel.send(msgin)
+    if len(str(msgin)) < char_limit:
+        await channel.send(msgin, tts=tts)
     else:
         messages = []
         amount, remainder = divmod(len(msgin), char_limit)
         for i in range(amount):
             messages.append(msgin[0:char_limit])
             msgin = msgin[char_limit:len(msgin)]
-        messages.append(msgin)  # TODO: Does this work?
+        messages.append(msgin)
         for msgout in messages:
-            await channel.send(msgout)
+            await channel.send(msgout, tts=tts)
 
 
 async def post_ml(message, spam):
@@ -476,6 +486,7 @@ def get_word_count():
     day = time.localtime()
     if day[1] == november:
             return nano_wordcounts[day[2] - 1]
+    return ''
 
 
 @client.event
@@ -527,13 +538,13 @@ commands = {'starwar': 'A long time ago, in a galaxy far far away.',
             'cheer': 'You can do it! '
                      'https://38.media.tumblr.com/91599091501f182b0fbffab90e115895/tumblr_nq2o6lc0Kp1s7widdo1_250.gif',
             'woot': 'cheers! Hooray!',
-            'help': 'Check the pinned message in #🤖skrivebot',  # TODO: fix this link
+            'help': 'Read the section about Timmy in #guide-botter',  # TODO: fix this link, 526175203873521694 channel id
             'count word': 'https://cdn.discordapp.com/attachments/526175173867732993/636293153229373470/IMG_20191022_220137.jpg',
             'bart i sjela': 'så da er det bart i sjela, komma i hjertet, tastatur i fingrene, fyllepenn i milten og lommer på skjørtet. '
                             'snart har vi en full person med dette',
-            'pisk': '<:pisk:556560214590095361>',
-            'crawl': 'https://docs.google.com/spreadsheets/d/12gmpjrQtaOqE7xwaVExiyYbfUZ1QjY4cJFPRZ0NRrj0/edit?usp=sharing%22',
-            'jeg har trua på deg': "I've threatened you",
+            'pisk': '<:pisk:556560214590095361> <:pisk:556560214590095361> <:pisk:556560214590095361>',
+            'crawl': 'https://docs.google.com/spreadsheets/d/1faSYMFcCR8_GabdAt4akegayoR9g9JWCLmLb5gnfPkQ/edit?usp=sharing',
+            'trua': "I'm threatening you, you can do this",
             'belinda': 'https://www.amazon.com/dp/B07D1JQ664/?tag=097-20&ascsubtag=v7_1_29_g_4j8r_4_x01_-srt5- \n'
                        'https://www.flickr.com/photos/caroslines/760491974',
             'domherren': 'https://www.fuglelyder.net/dompap/',
@@ -541,7 +552,9 @@ commands = {'starwar': 'A long time ago, in a galaxy far far away.',
             'prompt': get_prompt,
             'wordcount': get_word_count,
             'ml': ':lizard:',
+            'ekine': 'https://docs.google.com/document/d/1AQX9uNqqn2-pQetUzivMySZPufIkxSGyJqotTJcy_ms/edit',
             'møbelet': ['Det er et møbel. Med ansikt. Og det hater meg.', discord.File('møbelet.jpg')]
+            # TODO: Fix møbelet
             }
 
 year_before_first = 2018
