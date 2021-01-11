@@ -372,6 +372,18 @@ async def on_message(message):
         await asyncio.sleep(wait)
         await post_message(message.channel, msgout)
 
+    # Purge roles
+    if message_string.startswith("!purge") and is_role(message.author, admin_roles):
+        try:
+            roles = message.role_mentions
+        except IndexError:
+            await message.channel.send("Please ping at least one role")
+            return
+        for role in roles:
+            members = role.members
+            for member in members:
+                if is_role(member, [role.name]):
+                    await member.remove_roles(discord.utils.get(member.roles, name=role.name))
 
     # !reply
     elif message_string.startswith('!'):
@@ -440,7 +452,7 @@ def is_role(user, roles):
 
 
 def in_slagmark(message):
-    if message.channel.name == '🔱slagmark':
+    if '📎' in message.channel.name:
         return True
     return False
 
@@ -538,7 +550,7 @@ commands = {'starwar': 'A long time ago, in a galaxy far far away.',
             'cheer': 'You can do it! '
                      'https://38.media.tumblr.com/91599091501f182b0fbffab90e115895/tumblr_nq2o6lc0Kp1s7widdo1_250.gif',
             'woot': 'cheers! Hooray!',
-            'help': 'Read the section about Timmy in #guide-botter',  # TODO: fix this link, 526175203873521694 channel id
+            'help': 'Read the section about Timmy in <#526175203873521694>',
             'count word': 'https://cdn.discordapp.com/attachments/526175173867732993/636293153229373470/IMG_20191022_220137.jpg',
             'bart i sjela': 'så da er det bart i sjela, komma i hjertet, tastatur i fingrene, fyllepenn i milten og lommer på skjørtet. '
                             'snart har vi en full person med dette',
@@ -553,12 +565,13 @@ commands = {'starwar': 'A long time ago, in a galaxy far far away.',
             'wordcount': get_word_count,
             'ml': ':lizard:',
             'ekine': 'https://docs.google.com/document/d/1AQX9uNqqn2-pQetUzivMySZPufIkxSGyJqotTJcy_ms/edit',
-            'møbelet': ['Det er et møbel. Med ansikt. Og det hater meg.', discord.File('møbelet.jpg')]
+            'møbelet': ['Det er et møbel. Med ansikt. Og det hater meg.', discord.File('møbelet.jpg')],
+            'belindaserdeg': 'https://tenor.com/view/chicken-petting-staring-im-watching-you-gif-4613862'
             # TODO: Fix møbelet
             }
 
 year_before_first = 2018
-year_end = {2019: 16}  # , 2020: 90}
+year_end = {2019: 16, 2020: 26}
 hydras = []
 reading = open('hydras.txt', encoding="utf8")
 for hydra in reading:
