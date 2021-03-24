@@ -385,6 +385,32 @@ async def on_message(message):
                 if is_role(member, [role.name]):
                     await member.remove_roles(discord.utils.get(member.roles, name=role.name))
 
+    if message_string.startswith('!addrole') and is_role(message.author, admin_roles):
+        apply_to = []
+        apply_roles = []
+
+        try:
+            roles = message.role_mentions
+        except IndexError:
+            await message.channel.send("Please ping at least two roles")
+            return
+
+        for role in roles:
+            if '⎼' in role.name:
+                apply_roles.append(role)
+            else:
+                apply_to.append(role)
+
+        if len(apply_to) < 1 or len(apply_roles) < 1:
+            await message.channel.send("Please ping both a role to apply and a role for it to be applied to. Roles to"
+                                       "apply should contain the letter '-'")
+
+        for role in apply_to:
+            members = role.members
+            for member in members:
+                for r in apply_roles:
+                    await member.add_roles(discord.utils.get(message.author.guild.roles, name=r.name))
+
     # !reply
     elif message_string.startswith('!'):
         incommand = message.content.lower().split('!')
