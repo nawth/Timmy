@@ -3,6 +3,7 @@ import asyncio
 import time
 import random
 import heapq
+import re
 
 intents = discord.Intents.default()
 intents.members = True
@@ -11,21 +12,84 @@ client = discord.Client(intents=intents)
 
 
 class War:
-    def __init__(self, name, user, start_time, end_time):
+    def __init__(self, message, name, war_duration, wait_duration, repetitions):
         self.name = name
-        self.user = user
-        self.start_time = start_time
-        self.end_time = end_time
+        self.user = message.author
+        self.war_duration = war_duration
+        self.wait_duration = wait_duration
+        self.repetitions = int(repetitions)
+        self.message = message
+        self.start_time = time.time() + wait_duration
 
     def __str__(self):
         message = f'War: {self.name.strip()}. '
+        end_time = self.start_time + self.war_duration
+
         if self.start_time > time.time():
             converted_time = convert_time_difference_to_str(self.start_time - time.time())
-            message += f'Starting in {converted_time}'
+            message += f'Starting in {converted_time}. '
         else:
-            converted_time = convert_time_difference_to_str(self.end_time - time.time())
-            message += f'{converted_time} remaining'
+            converted_time = convert_time_difference_to_str(end_time - time.time())
+            message += f'{converted_time} remaining. '
+
+        if self.repetitions > 1:
+            message += f'{self.repetitions} more wars remaining'
+
         return message
+
+    async def countdown(self):
+        await post_message(self.message.channel, f'War: {self.name} is starting in '
+                                                 f'{convert_time_difference_to_str(self.wait_duration)}')
+        if self.wait_duration >= 5 * minute_length:
+            delay_countdown = minute_length / 2
+            await asyncio.sleep(self.wait_duration - delay_countdown)
+            if in_war(self.name, self):
+                user_mentions = await get_reactions_as_mentions(self.message, False)
+                await post_message(self.message.channel, f'War: {self.name} starts in '
+                                                         f'{convert_time_difference_to_str(delay_countdown)}. '
+                                                         f'Get ready! {user_mentions}')
+                await asyncio.sleep(delay_countdown)
+        else:
+            await asyncio.sleep(self.wait_duration)
+
+        if in_war(self.name, self):
+            await self.run_war()
+
+    async def run_war(self):
+        user_mentions = await get_reactions_as_mentions(self.message, False)
+        await post_message(self.message.channel, f'Start! War: {self.name} is on for '
+                                                 f'{convert_time_difference_to_str(self.war_duration)}. '
+                                                 f'{user_mentions}')
+
+        remaining_duration = self.war_duration
+
+        for interval in war_len_intervals:
+            if not in_war(self.name, self):
+                return
+            if remaining_duration <= minute_length:
+                await asyncio.sleep(remaining_duration)
+                break
+            if remaining_duration > interval:
+                diff = remaining_duration - interval
+                await asyncio.sleep(diff)
+                if not in_war(self.name, self):
+                    return
+                remaining_duration = interval
+                user_mentions = await get_reactions_as_mentions(self.message, True)
+                await post_message(self.message.channel, f'War: {self.name} has '
+                                                         f'{convert_time_difference_to_str(remaining_duration)} '
+                                                         f'remaining. {user_mentions}')
+
+        if in_war(self.name, self):
+            user_mentions = await get_reactions_as_mentions(self.message, False)
+            await post_message(self.message.channel, f'War: {self.name} has ended! {user_mentions}', tts=True)
+
+            if self.repetitions > 1:
+                self.repetitions -= 1
+                self.start_time = time.time() + self.wait_duration
+                await self.countdown()
+            else:
+                wars.pop(self.name.lower())
 
 
 class Event:
@@ -70,57 +134,29 @@ async def on_message(message):
     # Wars
     if message_string.startswith('!startwar') and in_slagmark(message):
         msgin = message.content.split()
-        war_ins, str_start = split_input_variables(msgin[1:], war_defaults)
+
+        str_start = 0
+        match = re.match("\[\d+\]", msgin[1])
+        if match is not None:
+            msgin[1] = msgin[1].strip('[]')
+            str_start += 1
+
+        war_ins, str_start = split_input_variables(msgin[str_start:], war_defaults)
 
         name = get_name_string(msgin[str_start:], message)
         if name.lower() in wars:
-            await message.channel.send('A war with that name already exists, please use a different name or end the'
-                                       ' current war.')
+            await message.channel.send('A war with that name already exists, please use a different name or end the '
+                                       'current war.')
             return
 
-        war_len = war_ins[0] * minute_length
-        wait_len = war_ins[1] * minute_length
-        this_war = War(name, message.author, time.time() + wait_len, time.time() + wait_len + war_len)
-        wars[name.lower()] = this_war
+        repetitions = war_ins[0]
+        war_duration = war_ins[1] * minute_length
+        wait_duration = war_ins[2] * minute_length
 
-        await post_message(message.channel, f'War: {name} is starting in {convert_time_difference_to_str(wait_len)}')
-        if wait_len >= 5 * minute_length:
-            delay_countdown = minute_length/2
-            await asyncio.sleep(wait_len - delay_countdown)
-            if in_war(name, this_war):
-                user_mentions = await get_reactions_as_mentions(message, False)
-                await post_message(message.channel, f'War: {name} starts in '
-                                                    f'{convert_time_difference_to_str(delay_countdown)}. '
-                                                    f'Get ready! {user_mentions}')
-                await asyncio.sleep(delay_countdown)
-        else:
-            await asyncio.sleep(wait_len)
+        war = War(message, name, war_duration, wait_duration, repetitions)
+        wars[name.lower()] = war
 
-        if in_war(name, this_war):
-            user_mentions = await get_reactions_as_mentions(message, False)
-            await post_message(message.channel, f'Start! War: {name} is on for '
-                                                f'{convert_time_difference_to_str(war_len)}. {user_mentions}')
-
-            for interval in war_len_intervals:
-                if not in_war(name, this_war):
-                    return
-                if war_len <= minute_length:
-                    await asyncio.sleep(war_len)
-                    break
-                if war_len > interval:
-                    diff = war_len - interval
-                    await asyncio.sleep(diff)
-                    if not in_war(name, this_war):
-                        return
-                    war_len = interval
-                    user_mentions = await get_reactions_as_mentions(message, True)
-                    await post_message(message.channel, f'War: {name} has {convert_time_difference_to_str(war_len)} '
-                                                        f'remaining. {user_mentions}')
-
-            if in_war(name, this_war):
-                user_mentions = await get_reactions_as_mentions(message, False)
-                await post_message(message.channel, f'War: {name} has ended! {user_mentions}', tts=True)
-                wars.pop(name.lower())
+        await war.countdown()
 
     if message_string.startswith('!endwar') and in_slagmark(message):
         name = message.content.split()
@@ -217,7 +253,8 @@ async def on_message(message):
     if message_string.startswith('!foof') and not in_slagmark(message):
         await message.channel.send('Righto... ')
         await asyncio.sleep(1.5)
-        await message.channel.send('**Timmy** surreptitiously works his way over to the couch, looking ever so casual...')
+        await message.channel.send('**Timmy** surreptitiously works his way over to the couch, looking ever so casual..'
+                                   '.')
         await asyncio.sleep(5)
         ran = random.randint(0, len(pillows) - 1)
         try:
@@ -415,9 +452,6 @@ async def on_message(message):
     elif message_string.startswith('!'):
         incommand = message.content.lower().split('!')
         if incommand[1] in commands:
-            if type(commands[incommand[1]]) is list:
-                await message.channel.send(content=commands[incommand[1]][0], file=commands[incommand[1]][1])
-                return
             try:
                 await post_message(message.channel, commands[incommand[1]]())
             except TypeError:
@@ -484,16 +518,16 @@ def in_slagmark(message):
 
 
 def convert_time_difference_to_str(diff):
-        msg = ''
-        for duration in duration_lengths:
-            if int(diff) >= duration[0]:
-                amount, diff = divmod(diff, duration[0])
-                msg += f'{int(amount)} {duration[1]}'
-                if amount > 1:
-                    msg += 's'
-                if diff >= 1:
-                    msg += ', '
-        return msg
+    msg = ''
+    for duration in duration_lengths:
+        if int(diff) >= duration[0]:
+            amount, diff = divmod(diff, duration[0])
+            msg += f'{int(amount)} {duration[1]}'
+            if amount > 1:
+                msg += 's'
+            if diff >= 1:
+                msg += ', '
+    return msg
 
 
 def split_input_variables(list_of_strings, list_of_vars):
@@ -523,7 +557,7 @@ def get_prompt():
 def get_word_count():
     day = time.localtime()
     if day[1] == november:
-            return nano_wordcounts[day[2] - 1]
+        return nano_wordcounts[day[2] - 1]
     return ''
 
 
@@ -553,12 +587,13 @@ char_limit = 2000
 november = 11
 minute_length = 60
 spam_defaults = [('freq', 30)]
-war_defaults = [('war_len', 10), ('wait_len', 1)]
+war_defaults = [('repetitions', 1),('war_len', 10), ('wait_len', 1)]
 war_len_intervals = [120, 60, 30, 20, 10, 5, 1,  0]
 war_len_intervals = [interval * minute_length for interval in war_len_intervals]
 duration_lengths = [(86400, 'day'), (3600, 'hour'), (60, 'minute'), (1, 'second')]
 nano_wordcounts = [1667, 3333, 5000, 6667, 8333, 10000, 11667, 13333, 15000, 16667, 18333, 20000, 21667, 23333, 25000,
-                   26667, 28333, 30000, 31667, 33333, 35000, 36667, 38333, 40000, 41667, 43333, 45000, 46667, 48333, 50000]
+                   26667, 28333, 30000, 31667, 33333, 35000, 36667, 38333, 40000, 41667, 43333, 45000, 46667, 48333,
+                   50000]
 
 pillows = []
 reading = open('pillowlist.txt', 'r')
@@ -577,11 +612,13 @@ commands = {'starwar': 'A long time ago, in a galaxy far far away.',
                      'https://38.media.tumblr.com/91599091501f182b0fbffab90e115895/tumblr_nq2o6lc0Kp1s7widdo1_250.gif',
             'woot': 'cheers! Hooray!',
             'help': 'Read the section about Timmy in <#526175203873521694>',
-            'count word': 'https://cdn.discordapp.com/attachments/526175173867732993/636293153229373470/IMG_20191022_220137.jpg',
-            'bart i sjela': 'så da er det bart i sjela, komma i hjertet, tastatur i fingrene, fyllepenn i milten og lommer på skjørtet. '
-                            'snart har vi en full person med dette',
+            'count word':
+                'https://cdn.discordapp.com/attachments/526175173867732993/636293153229373470/IMG_20191022_220137.jpg',
+            'bart i sjela': 'så da er det bart i sjela, komma i hjertet, tastatur i fingrene, fyllepenn i milten og '
+                            'lommer på skjørtet. snart har vi en full person med dette',
             'pisk': '<:pisk:556560214590095361> <:pisk:556560214590095361> <:pisk:556560214590095361>',
-            'crawl': 'https://docs.google.com/spreadsheets/d/1faSYMFcCR8_GabdAt4akegayoR9g9JWCLmLb5gnfPkQ/edit?usp=sharing',
+            'crawl':
+                'https://docs.google.com/spreadsheets/d/1faSYMFcCR8_GabdAt4akegayoR9g9JWCLmLb5gnfPkQ/edit?usp=sharing',
             'trua': "I'm threatening you, you can do this",
             'belinda': 'https://www.amazon.com/dp/B07D1JQ664/?tag=097-20&ascsubtag=v7_1_29_g_4j8r_4_x01_-srt5- \n'
                        'https://www.flickr.com/photos/caroslines/760491974',
@@ -591,9 +628,9 @@ commands = {'starwar': 'A long time ago, in a galaxy far far away.',
             'wordcount': get_word_count,
             'ml': ':lizard:',
             'ekine': 'https://docs.google.com/document/d/1AQX9uNqqn2-pQetUzivMySZPufIkxSGyJqotTJcy_ms/edit',
-            'møbelet': ['Det er et møbel. Med ansikt. Og det hater meg.', discord.File('møbelet.jpg')],
+            'møbelet': 'Det er et møbel. Med ansikt. Og det hater meg. '
+                       'https://cdn.discordapp.com/attachments/683656630138961921/824283058970558564/mbelet.jpg',
             'belindaserdeg': 'https://tenor.com/view/chicken-petting-staring-im-watching-you-gif-4613862'
-            # TODO: Fix møbelet
             }
 
 year_before_first = 2018
@@ -604,7 +641,7 @@ for hydra in reading:
     hydras.append(hydra)
 reading.close()
 
-admin_roles = ['ML', 'Local Wolfboy']
+admin_roles = ['ML']
 
 reading = open('key.txt', 'r')
 TOKEN = reading.readline().strip()
