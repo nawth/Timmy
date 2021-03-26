@@ -87,6 +87,10 @@ class War:
             if self.repetitions > 1:
                 self.repetitions -= 1
                 self.start_time = time.time() + self.wait_duration
+                if self.repetitions > 1:
+                    await post_message(self.message.channel, f'{self.repetitions} more wars remaining')
+                else:
+                    await post_message(self.message.channel, 'One more war remaining')
                 await self.countdown()
             else:
                 wars.pop(self.name.lower())
@@ -136,10 +140,11 @@ async def on_message(message):
         msgin = message.content.split()
 
         str_start = 0
-        match = re.match("\[\d+\]", msgin[1])
-        if match is not None:
-            msgin[1] = msgin[1].strip('[]')
-            str_start += 1
+        if len(msgin) > 1:
+            match = re.match("\[\d+\]", msgin[1])
+            if match is not None:
+                msgin[1] = msgin[1].strip('[]')
+                str_start += 1
 
         war_ins, str_start = split_input_variables(msgin[str_start:], war_defaults)
 
