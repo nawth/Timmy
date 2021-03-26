@@ -240,8 +240,7 @@ async def on_message(message):
         await post_message(message.channel, msgout)
 
     # Roll
-    if message_string.startswith('!d') and not message_string.endswith('n') and not in_slagmark(message):
-        # TODO: make this check if string.startswith('!d ') or ends with number?
+    if (re.match('!d(?!\D)', message_string) is not None) and not in_slagmark(message):
         try:
             num = int(message.content[2:])
         except (ValueError, IndexError):
