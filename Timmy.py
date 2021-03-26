@@ -131,6 +131,21 @@ class Event:
             await post_message(self.channel, self.name, self.tts)
 
 
+class Spam:
+    def __init__(self, channel, message, frequency):
+        self.channel = channel
+        self.message = message
+        self.frequency = frequency
+
+    def __str__(self):
+        return f'{self.message} every {convert_time_difference_to_str(self.frequency)}'
+
+    async def run(self):
+        while self.message in spam_dict:
+            await post_message(self.channel, self.message)
+            await asyncio.sleep(self.frequency)
+
+
 @client.event
 async def on_message(message):
     message_string = message.content.lower()
@@ -176,15 +191,25 @@ async def on_message(message):
             msgout = 'No war with that name.'
         await post_message(message.channel, msgout)
 
-    # TODO: consolidate listing
-    if message_string.startswith('!listwars'):
-        if len(wars) > 0:
-            msg = ''
-            for key in wars:
-                msg += wars[key].__str__() + '\n'
-            await post_message(message.channel, msg)
-        else:
-            await message.channel.send('No wars at this time')
+    if message_string.startswith('!list'):
+        params_in = message.content.split()
+        params_in[0] = params_in[0][5:]
+
+        if params_in[0] == '':
+            params_in = ['wars']
+        if params_in[0] not in params:
+            return
+        for in_param in params_in:
+            for param in params:
+                if in_param == param:
+                    if len(params[param]) > 0:
+                        msg = ''
+                        for key in params[param]:
+                            msg += params[param][key].__str__() + '\n'
+                        await post_message(message.channel, msg)
+                    else:
+                        await message.channel.send(f'No {param} at this time')
+                    break
 
     if message_string.startswith('!no-countdown'):
         if is_role(message.author, ['No-Countdown']):
@@ -308,38 +333,20 @@ async def on_message(message):
                 return
         await message.channel.send('Events must be formatted as !MakeEvent <message> <{YYYY-MM-DD HH:MM}>')
 
-    if message_string.startswith('!listevents') and is_role(message.author, admin_roles) and not in_slagmark(message):
-        if len(events) > 0:
-            msg = ''
-            for key in events:
-                msg += events[key].__str__()
-            await post_message(message.channel, msg)
-        else:
-            await message.channel.send('No events at this time')
-
     # Spam
     if message_string.startswith('!spam') and is_role(message.author, admin_roles) and not in_slagmark(message):
         msgin = message.content.split()
         freq_list, str_start = split_input_variables(msgin[1:], spam_defaults)
-
         freq = freq_list[0] * minute_length
         try:
             if msgin[str_start]:
                 msg = get_name_string(msgin[str_start:], message)
                 if msg != '':
-                    spam_dict[msg] = freq
-                    await post_ml(message, msg)
+                    spam = Spam(message.channel, msg, freq)
+                    spam_dict[msg] = spam
+                    await spam.run()
         except IndexError:
             await message.channel.send('Please include a message')
-
-    if message_string.startswith('!listspam') and is_role(message.author, admin_roles) and not in_slagmark(message):
-        if len(spam_dict) > 0:
-            msg = ''
-            for spam in spam_dict:
-                msg += f'{spam} every {convert_time_difference_to_str(spam_dict[spam])} \n'
-            await post_message(message.channel, msg)
-        else:
-            await message.channel.send('No ongoing spam')
 
     # stopping
     if message_string.startswith('!stop') and is_role(message.author, admin_roles):
@@ -476,13 +483,6 @@ async def post_message(channel, msgin, tts=False):
         messages.append(msgin)
         for msgout in messages:
             await channel.send(msgout, tts=tts)
-
-
-async def post_ml(message, spam):
-    while spam in spam_dict:
-        await post_message(message.channel, spam)
-        await asyncio.sleep(spam_dict[spam])
-
 
 async def get_reactions_as_mentions(message, no_countdown):
     if no_countdown and is_role(message.author, ['No-Countdown']):
