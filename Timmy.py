@@ -174,6 +174,7 @@ async def on_message(message):
         wait_duration = war_ins[2] * minute_length
 
         war = War(message, name, war_duration, wait_duration, repetitions)
+        await message.add_reaction('⚔')
         wars[name.lower()] = war
 
         await war.countdown()
@@ -493,9 +494,10 @@ async def get_reactions_as_mentions(message, no_countdown):
         async for user in r.users():
             if no_countdown and is_role(user, ['No-Countdown']):
                 continue
+            if user.bot:
+                continue
             user_mention += ' ' + str(user.mention)
     return user_mention
-
 
 def get_name_string(msg_list, message):
     msg = ''
