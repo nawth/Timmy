@@ -38,14 +38,14 @@ class War:
         return message
 
     async def countdown(self):
-        await post_message(self.message.channel, f'War: {self.name} is starting in '
+        await post_message(self.message, f'War: {self.name} is starting in '
                                                  f'{convert_time_difference_to_str(self.wait_duration)}')
         if self.wait_duration >= 5 * minute_length:
             delay_countdown = minute_length / 2
             await asyncio.sleep(self.wait_duration - delay_countdown)
             if in_war(self.name, self):
                 user_mentions = await get_reactions_as_mentions(self.message, False)
-                await post_message(self.message.channel, f'War: {self.name} starts in '
+                await post_message(self.message, f'War: {self.name} starts in '
                                                          f'{convert_time_difference_to_str(delay_countdown)}. '
                                                          f'Get ready! {user_mentions}')
                 await asyncio.sleep(delay_countdown)
@@ -57,7 +57,7 @@ class War:
 
     async def run_war(self):
         user_mentions = await get_reactions_as_mentions(self.message, False)
-        await post_message(self.message.channel, f'Start! War: {self.name} is on for '
+        await post_message(self.message, f'Start! War: {self.name} is on for '
                                                  f'{convert_time_difference_to_str(self.war_duration)}. '
                                                  f'{user_mentions}')
 
@@ -76,30 +76,30 @@ class War:
                     return
                 remaining_duration = interval
                 user_mentions = await get_reactions_as_mentions(self.message, True)
-                await post_message(self.message.channel, f'War: {self.name} has '
-                                                         f'{convert_time_difference_to_str(remaining_duration)} '
-                                                         f'remaining. {user_mentions}')
+                await post_message(self.message, f'War: {self.name} has '
+                                                 f'{convert_time_difference_to_str(remaining_duration)} '
+                                                 f'remaining. {user_mentions}')
 
         if in_war(self.name, self):
             user_mentions = await get_reactions_as_mentions(self.message, False)
-            await post_message(self.message.channel, f'War: {self.name} has ended! {user_mentions}', tts=True)
+            await post_message(self.message, f'War: {self.name} has ended! {user_mentions}', tts=True)
 
             if self.repetitions > 1:
                 self.repetitions -= 1
                 self.start_time = time.time() + self.wait_duration
                 if self.repetitions > 1:
-                    await post_message(self.message.channel, f'{self.repetitions} more wars remaining')
+                    await post_message(self.message, f'{self.repetitions} more wars remaining')
                 else:
-                    await post_message(self.message.channel, 'One more war remaining')
+                    await post_message(self.message, 'One more war remaining')
                 await self.countdown()
             else:
                 wars.pop(self.name.lower())
 
 
 class Event:
-    def __init__(self, name, channel, tts):
+    def __init__(self, name, message, tts):
         self.name = name
-        self.channel = channel
+        self.message = message
         self.events = []
         heapq.heapify(self.events)
         self.current = []
@@ -113,9 +113,9 @@ class Event:
     def __str__(self):
         msg = ''
         for event in self.current:
-            msg += f'Event {self.name} in {convert_time_difference_to_str(event-time.time())} \n'
+            msg += f'Event {self.name} in {convert_time_difference_to_str(event - time.time())} \n'
         for event in self.events:
-            msg += f'Event {self.name} in {convert_time_difference_to_str(event-time.time())} \n'
+            msg += f'Event {self.name} in {convert_time_difference_to_str(event - time.time())} \n'
         return msg
 
     def push(self, item):
@@ -128,21 +128,21 @@ class Event:
             wait = event_time - time.time()
             await asyncio.sleep(wait)
             self.current.remove(event_time)
-            await post_message(self.channel, self.name, self.tts)
+            await post_message(self.message, self.name, self.tts, False)
 
 
 class Spam:
-    def __init__(self, channel, message, frequency):
-        self.channel = channel
+    def __init__(self, message, spam, frequency):
         self.message = message
+        self.spam = spam
         self.frequency = frequency
 
     def __str__(self):
-        return f'{self.message} every {convert_time_difference_to_str(self.frequency)}'
+        return f'{self.spam} every {convert_time_difference_to_str(self.frequency)}'
 
     async def run(self):
-        while self.message in spam_dict:
-            await post_message(self.channel, self.message)
+        while self.spam in spam_dict:
+            await post_message(self.message, self.spam)
             await asyncio.sleep(self.frequency)
 
 
@@ -190,7 +190,7 @@ async def on_message(message):
                 msgout = 'You can only end your own wars.'
         else:
             msgout = 'No war with that name.'
-        await post_message(message.channel, msgout)
+        await post_message(message, msgout)
 
     if message_string.startswith('!list'):
         params_in = message.content.split()
@@ -207,7 +207,7 @@ async def on_message(message):
                         msg = ''
                         for key in params[param]:
                             msg += params[param][key].__str__() + '\n'
-                        await post_message(message.channel, msg)
+                        await post_message(message, msg)
                     else:
                         await message.channel.send(f'No {param} at this time')
                     break
@@ -231,7 +231,7 @@ async def on_message(message):
                 user_wordcounts.pop(message.author)
                 try:
                     session_len = int(msgin[2])
-                    wpm = float(words_written/session_len)
+                    wpm = float(words_written / session_len)
                     msgout += f'Your wpm is {round(wpm)}. '
                 except (IndexError, ValueError):
                     pass
@@ -268,7 +268,7 @@ async def on_message(message):
         except (IndexError, ValueError):
             msgout += 'Please provide a valid wordcount'
 
-        await post_message(message.channel, msgout)
+        await post_message(message, msgout)
 
     # Roll
     if (re.match('!d(?!\D)', message_string) is not None) and not in_slagmark(message):
@@ -317,19 +317,19 @@ async def on_message(message):
                         if converted_time > time.time():
                             if msg in events:
                                 if converted_time in events[msg]:
-                                    await post_message(message.channel, f'Date {date} is already set for this event.')
+                                    await post_message(message, f'Date {date} is already set for this event.')
                                 else:
                                     events[msg].push(converted_time)
-                                    await post_message(message.channel, f'Event {msg} set for {date}')
+                                    await post_message(message, f'Event {msg} set for {date}')
                             else:
-                                events[msg] = Event(msg, message.channel, tts)
+                                events[msg] = Event(msg, message, tts)
                                 events[msg].push(converted_time)
-                                await post_message(message.channel, f'Event {msg} set for {date}')
+                                await post_message(message, f'Event {msg} set for {date}')
                         else:
-                            await post_message(message.channel, f'Date {date} is in the past. Make sure you format it'
-                                                                f' correctly')
+                            await post_message(message, f'Date {date} is in the past. Make sure you format it'
+                                                        f' correctly')
                     except ValueError:
-                        await post_message(message.channel, f'Date {date} was formatted incorrectly')
+                        await post_message(message, f'Date {date} was formatted incorrectly')
                 await events[msg].run_event()
                 return
         await message.channel.send('Events must be formatted as !MakeEvent <message> <{YYYY-MM-DD HH:MM}>')
@@ -343,7 +343,7 @@ async def on_message(message):
             if msgin[str_start]:
                 msg = get_name_string(msgin[str_start:], message)
                 if msg != '':
-                    spam = Spam(message.channel, msg, freq)
+                    spam = Spam(message, msg, freq)
                     spam_dict[msg] = spam
                     await spam.run()
         except IndexError:
@@ -360,7 +360,7 @@ async def on_message(message):
                 msgout += f'{param}: {msg} stopped \n'
         if msgout == '':
             msgout += 'No spam or event with that name'
-        await post_message(message.channel, msgout)
+        await post_message(message, msgout)
 
     if message_string.startswith('!nuke') and is_role(message.author, admin_roles):
         msgin = message.content.split()
@@ -391,12 +391,12 @@ async def on_message(message):
             if year - 1 == year_before_first:
                 value_bottom = 0
             else:
-                value_bottom = year_end[year-1]
+                value_bottom = year_end[year - 1]
             value = random.randint(value_bottom, year_end[year])
         else:
-            value = random.randint(0, len(hydras)-1)
+            value = random.randint(0, len(hydras) - 1)
 
-        await post_message(message.channel, hydras[value])
+        await post_message(message, hydras[value])
 
     if message_string.startswith('!abuse') and is_role(message.author, admin_roles):
         k = 0
@@ -412,14 +412,14 @@ async def on_message(message):
     if message_string.startswith("!remind"):
         msgin = message_string.split()
         try:
-            wait = float(msgin[1])*60
+            wait = float(msgin[1]) * 60
         except ValueError:
             await message.channel.send('Please provide a number for how long until you want to be reminded in minutes')
             return
 
         msgout = get_name_string(msgin[2:], message)
         await asyncio.sleep(wait)
-        await post_message(message.channel, msgout)
+        await post_message(message, msgout)
 
     # Purge roles
     if message_string.startswith("!purge") and is_role(message.author, admin_roles):
@@ -465,16 +465,19 @@ async def on_message(message):
         incommand = message.content.lower().split('!')
         if incommand[1] in commands:
             try:
-                await post_message(message.channel, commands[incommand[1]]())
+                await post_message(message, commands[incommand[1]]())
             except TypeError:
-                await post_message(message.channel, commands[incommand[1]])
+                await post_message(message, commands[incommand[1]])
 
 
-async def post_message(channel, msgin, tts=False):
+async def post_message(message, msgin, tts=False, reply=True):
+    channel = message.channel
     if msgin == '':
         return
+    if not reply:
+        message = None
     if len(str(msgin)) < char_limit:
-        await channel.send(msgin, tts=tts)
+        await channel.send(msgin, tts=tts, reference=message, mention_author=False)
     else:
         messages = []
         amount, remainder = divmod(len(msgin), char_limit)
@@ -483,7 +486,8 @@ async def post_message(channel, msgin, tts=False):
             msgin = msgin[char_limit:len(msgin)]
         messages.append(msgin)
         for msgout in messages:
-            await channel.send(msgout, tts=tts)
+            await channel.send(msgout, tts=tts, reference=message, mention_author=False)
+
 
 async def get_reactions_as_mentions(message, no_countdown):
     if no_countdown and is_role(message.author, ['No-Countdown']):
@@ -498,6 +502,7 @@ async def get_reactions_as_mentions(message, no_countdown):
                 continue
             user_mention += ' ' + str(user.mention)
     return user_mention
+
 
 def get_name_string(msg_list, message):
     msg = ''
@@ -578,7 +583,7 @@ async def on_ready():
             status = get_prompt()
 
         await client.change_presence(activity=discord.Game(name=status))
-        time_past_midnight = day[3]*3600 + day[4]*60 + day[5]
+        time_past_midnight = day[3] * 3600 + day[4] * 60 + day[5]
         time_to_midnight = 86400 - time_past_midnight
         await asyncio.sleep(time_to_midnight)
 
@@ -593,8 +598,8 @@ char_limit = 2000
 november = 11
 minute_length = 60
 spam_defaults = [('freq', 30)]
-war_defaults = [('repetitions', 1),('war_len', 10), ('wait_len', 1)]
-war_len_intervals = [120, 60, 30, 20, 10, 5, 1,  0]
+war_defaults = [('repetitions', 1), ('war_len', 10), ('wait_len', 1)]
+war_len_intervals = [120, 60, 30, 20, 10, 5, 1, 0]
 war_len_intervals = [interval * minute_length for interval in war_len_intervals]
 duration_lengths = [(86400, 'day'), (3600, 'hour'), (60, 'minute'), (1, 'second')]
 nano_wordcounts = [1667, 3333, 5000, 6667, 8333, 10000, 11667, 13333, 15000, 16667, 18333, 20000, 21667, 23333, 25000,
