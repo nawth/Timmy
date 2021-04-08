@@ -51,7 +51,7 @@ class War:
                 user_mentions = await get_reactions_as_mentions(self.message, False)
                 await post_message(self.message, f'War: {self.name} starts in '
                                                  f'{convert_time_difference_to_str(delay_countdown)}. '
-                                                 f'Get ready! {user_mentions}', reply=True)
+                                                 f'Get ready! {user_mentions}', reply=True, mention=True)
                 await asyncio.sleep(delay_countdown)
         else:
             await asyncio.sleep(self.wait_duration)
@@ -169,8 +169,8 @@ async def on_message(message):
 
         name = get_name_string(msgin[str_start:], message)
         if name.lower() in wars:
-            await message.channel.send('A war with that name already exists, please use a different name or end the '
-                                       'current war.')
+            await message.reply('A war with that name already exists, please use a different name or end the current '
+                                'war.', mention_author=False)
             return
 
         repetitions = war_ins[0]
@@ -213,8 +213,7 @@ async def on_message(message):
                             msg += params[param][key].__str__() + '\n'
                         await post_message(message, msg)
                     else:
-                        await message.channel.send(f'No {param} at this time')
-                    break
+                        await message.reply(f'No {param} at this time', mention_author=False)
 
     if message_string.startswith('!no-countdown'):
         if is_role(message.author, ['No-Countdown']):
@@ -281,7 +280,7 @@ async def on_message(message):
         except (ValueError, IndexError):
             num = 6
         ran_num = random.randint(1, num)
-        await message.channel.send(ran_num)
+        await post_message(message, ran_num)
 
     # Throw
     if message_string.startswith('!foof') and not in_slagmark(message):
@@ -336,7 +335,8 @@ async def on_message(message):
                         await post_message(message, f'Date {date} was formatted incorrectly')
                 await events[msg].run_event()
                 return
-        await message.channel.send('Events must be formatted as !MakeEvent <message> <{YYYY-MM-DD HH:MM}>')
+        await message.reply('Events must be formatted as !MakeEvent <message> <{YYYY-MM-DD HH:MM}>',
+                            mention_author=False)
 
     # Spam
     if message_string.startswith('!spam') and is_role(message.author, admin_roles) and not in_slagmark(message):
@@ -351,7 +351,7 @@ async def on_message(message):
                     spam_dict[msg] = spam
                     await spam.run()
         except IndexError:
-            await message.channel.send('Please include a message')
+            await message.reply('Please include a message', mention_author=False)
 
     # stopping
     if message_string.startswith('!stop') and is_role(message.author, admin_roles):
@@ -381,7 +381,7 @@ async def on_message(message):
                     msgout += f'All {param} ended \n'
                     params[param].clear()
                     break
-        await message.channel.send(msgout)
+        await message.reply(msgout, mention_author=False)
 
     # Hydra
     if message_string.startswith('!hydra'):
@@ -418,7 +418,8 @@ async def on_message(message):
         try:
             wait = float(msgin[1]) * 60
         except ValueError:
-            await message.channel.send('Please provide a number for how long until you want to be reminded in minutes')
+            await message.reply('Please provide a number for how long until you want to be reminded in minutes',
+                                mention_author=False)
             return
 
         msgout = get_name_string(msgin[2:], message)
@@ -430,7 +431,7 @@ async def on_message(message):
         try:
             roles = message.role_mentions
         except IndexError:
-            await message.channel.send("Please ping at least one role")
+            await message.reply("Please ping at least one role", mention_author=False)
             return
         for role in roles:
             members = role.members
@@ -445,7 +446,7 @@ async def on_message(message):
         try:
             roles = message.role_mentions
         except IndexError:
-            await message.channel.send("Please ping at least two roles")
+            await message.reply("Please ping at least two roles", mention_author=False)
             return
 
         for role in roles:
@@ -455,8 +456,8 @@ async def on_message(message):
                 apply_to.append(role)
 
         if len(apply_to) < 1 or len(apply_roles) < 1:
-            await message.channel.send("Please ping both a role to apply and a role for it to be applied to. Roles to"
-                                       "apply should contain the letter '-'")
+            await message.reply("Please ping both a role to apply and a role for it to be applied to. Roles to apply "
+                                "should contain the letter '-'", mention_author=False)
 
         for role in apply_to:
             members = role.members
