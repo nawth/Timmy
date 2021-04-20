@@ -347,7 +347,7 @@ async def on_message(message):
                                     await post_message(message, f'Date {date} is already set for this event.')
                                 else:
                                     events[msg].push(converted_time)
-                                    await post_message(message, f'Event {msg} set for {date}')
+                                    await post_message(message, f'Event {msg} added for {date}')
                             else:
                                 events[msg] = Event(msg, message, tts)
                                 events[msg].push(converted_time)
@@ -357,8 +357,11 @@ async def on_message(message):
                                                         f' correctly')
                     except ValueError:
                         await post_message(message, f'Date {date} was formatted incorrectly')
-                await events[msg].run_event()
+
+                if msg in events:
+                    await events[msg].run_event()
                 return
+
         await message.reply('Events must be formatted as !MakeEvent <message> <{YYYY-MM-DD HH:MM}>',
                             mention_author=False)
 
