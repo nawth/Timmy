@@ -131,9 +131,9 @@ class Event:
     def __str__(self):
         msg = ''
         for event in self.current:
-            msg += f'Event {self.name} in {convert_time_difference_to_str(event - time.time())} \n'
+            msg += f'Event: {self.name} in {convert_time_difference_to_str(event - time.time())} \n'
         for event in self.events:
-            msg += f'Event {self.name} in {convert_time_difference_to_str(event - time.time())} \n'
+            msg += f'Event: {self.name} in {convert_time_difference_to_str(event - time.time())} \n'
         return msg
 
     def push(self, item):
@@ -156,7 +156,7 @@ class Spam:
         self.frequency = frequency
 
     def __str__(self):
-        return f'{self.spam} every {convert_time_difference_to_str(self.frequency)}'
+        return f'Spam: {self.spam} every {convert_time_difference_to_str(self.frequency)}'
 
     async def run(self):
         while self.spam in spam_dict:
