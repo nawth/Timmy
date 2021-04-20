@@ -25,7 +25,7 @@ class War:
         else:
             self.mention_author = True
 
-    def __str__(self):
+    def __str__(self, link=True):
         string = f'War: {self.name.strip()}. '
 
         if self.start_time > time.time():
@@ -39,7 +39,8 @@ class War:
         if self.repetitions > 1:
             string += f'{self.repetitions} more wars remaining'
 
-        string += self.message.jump_url
+        if link:
+            string += self.message.jump_url
 
         return string
 
@@ -210,23 +211,33 @@ async def on_message(message):
         await post_message(message, msgout)
 
     if message_string.startswith('!list'):
-        params_in = message.content.split()
-        params_in[0] = params_in[0][5:]
+        listings = message.content.split()
+        listings[0] = listings[0][5:]
 
-        if params_in[0] == '':
-            params_in = ['wars']
-        if params_in[0] not in params:
+        if listings[0] == '':
+            listings = ['wars']
+        if listings[0] == 'all':
+            listings = ['wars', 'events', 'spam']
+
+        if listings[0] not in params:
             return
-        for in_param in params_in:
+
+        if listings[0] == 'wars' and len(wars) == 1:
+            for key in wars:
+                war = wars[key]
+            await post_message(war.message, war.__str__(False))
+            return
+
+        msg = ''
+        for listing in listings:
             for param in params:
-                if in_param == param:
+                if listing == param:
                     if len(params[param]) > 0:
-                        msg = ''
                         for key in params[param]:
                             msg += params[param][key].__str__() + '\n'
-                        await post_message(message, msg)
                     else:
-                        await message.reply(f'No {param} at this time', mention_author=False)
+                        msg += f'No {param} at this time \n'
+        await post_message(message, msg)
 
     if message_string.startswith('!no-countdown'):
         if is_role(message.author, ['No-Countdown']):
