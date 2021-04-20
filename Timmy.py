@@ -26,20 +26,22 @@ class War:
             self.mention_author = True
 
     def __str__(self):
-        message = f'War: {self.name.strip()}. '
-        end_time = self.start_time + self.war_duration
+        string = f'War: {self.name.strip()}. '
 
         if self.start_time > time.time():
             converted_time = convert_time_difference_to_str(self.start_time - time.time())
-            message += f'Starting in {converted_time}. '
+            string += f'Starting in {converted_time}. '
         else:
+            end_time = self.start_time + self.war_duration
             converted_time = convert_time_difference_to_str(end_time - time.time())
-            message += f'{converted_time} remaining. '
+            string += f'{converted_time} remaining. '
 
         if self.repetitions > 1:
-            message += f'{self.repetitions} more wars remaining'
+            string += f'{self.repetitions} more wars remaining'
 
-        return message
+        string += self.message.jump_url
+
+        return string
 
     async def countdown(self):
         await post_message(self.message, f'War: {self.name} is starting in '
