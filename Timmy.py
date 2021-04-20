@@ -50,7 +50,7 @@ class War:
             delay_countdown = minute_length / 2
             await asyncio.sleep(self.wait_duration - delay_countdown)
             if in_war(self.name, self):
-                user_mentions = await get_reactions_as_mentions(self.message, False)
+                user_mentions = await self.get_reactions_as_mentions(False)
                 await post_message(self.message, f'War: {self.name} starts in '
                                                  f'{convert_time_difference_to_str(delay_countdown)}. '
                                                  f'Get ready! {user_mentions}', reply=True, mention=True)
@@ -62,7 +62,7 @@ class War:
             await self.run_war()
 
     async def run_war(self):
-        user_mentions = await get_reactions_as_mentions(self.message, False)
+        user_mentions = await self.get_reactions_as_mentions(False)
         await post_message(self.message, f'Start! War: {self.name} is on for '
                                          f'{convert_time_difference_to_str(self.war_duration)}. '
                                          f'{user_mentions}', mention=True)
@@ -81,13 +81,13 @@ class War:
                 if not in_war(self.name, self):
                     return
                 remaining_duration = interval
-                user_mentions = await get_reactions_as_mentions(self.message, True)
+                user_mentions = await self.get_reactions_as_mentions(True)
                 await post_message(self.message, f'War: {self.name} has '
                                                  f'{convert_time_difference_to_str(remaining_duration)} '
                                                  f'remaining. {user_mentions}', mention=self.mention_author)
 
         if in_war(self.name, self):
-            user_mentions = await get_reactions_as_mentions(self.message, False)
+            user_mentions = await self.get_reactions_as_mentions(False)
             await post_message(self.message, f'War: {self.name} has ended! {user_mentions}', tts=True, mention=True)
 
             if self.repetitions > 1:
@@ -100,6 +100,17 @@ class War:
                 await self.countdown()
             else:
                 wars.pop(self.name.lower())
+
+    async def get_reactions_as_mentions(self, no_countdown):
+        user_mention = ''
+        for r in self.message.reactions:
+            async for user in r.users():
+                if no_countdown and is_role(user, ['No-Countdown']):
+                    continue
+                if user.bot:
+                    continue
+                user_mention += ' ' + str(user.mention)
+        return user_mention
 
 
 class Event:
@@ -494,18 +505,6 @@ async def post_message(message, msgin, tts=False, reply=True, mention=False):
         messages.append(msgin)
         for msgout in messages:
             await channel.send(msgout, tts=tts, reference=message, mention_author=mention)
-
-
-async def get_reactions_as_mentions(message, no_countdown):
-    user_mention = ''
-    for r in message.reactions:
-        async for user in r.users():
-            if no_countdown and is_role(user, ['No-Countdown']):
-                continue
-            if user.bot:
-                continue
-            user_mention += ' ' + str(user.mention)
-    return user_mention
 
 
 def get_name_string(msg_list, message):
