@@ -217,7 +217,7 @@ async def on_message(message):
         if listings[0] == '':
             listings = ['wars']
         if listings[0] == 'all':
-            listings = ['wars', 'events', 'spam']
+            listings = ['events', 'wars', 'spam']
 
         if listings[0] not in params:
             return
