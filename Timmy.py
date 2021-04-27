@@ -217,12 +217,12 @@ async def on_message(message):
         if listings[0] == '':
             listings = ['wars']
         if listings[0] == 'all':
-            listings = ['events', 'wars', 'spam']
+            listings = params_list
 
         if listings[0] not in params:
             return
 
-        if listings[0] == 'wars' and len(wars) == 1:
+        if listings[0] == 'wars' and len(wars) == 1 and len(listings) == 1:
             for key in wars:
                 war = wars[key]
             await post_message(war.message, war.__str__(False))
@@ -392,6 +392,7 @@ async def on_message(message):
         if msgout == '':
             msgout += 'No spam or event with that name'
         await post_message(message, msgout)
+        # TODO: fix this to properly accommodate wars being saved with name.lower().
 
     if message_string.startswith('!nuke') and is_role(message.author, admin_roles):
         msgin = message.content.split()
@@ -399,7 +400,7 @@ async def on_message(message):
         msgout = ''
 
         if len(params_in) == 0:
-            params_in = ['wars', 'spam', 'events']
+            params_in = params_list
         if params_in[0] not in params:
             return
         for in_param in params_in:
@@ -609,6 +610,7 @@ wars = {}
 spam_dict = {}
 events = {}
 params = {'wars': wars, 'spam': spam_dict, 'events': events}
+params_list = ['wars', 'spam', 'events']
 user_wordcounts = {}
 
 char_limit = 2000
