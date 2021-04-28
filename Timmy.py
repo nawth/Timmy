@@ -164,7 +164,7 @@ class Spam:
             await asyncio.sleep(self.frequency)
 
 
-class WarSession:
+class Session:
     def __init__(self, name, message, in_list):
         self.name = name
         self.user = message.author
@@ -178,13 +178,13 @@ class WarSession:
 
     def __str__(self):
         if self.duration > self.min_war:
-            return f'War session: {self.name} with {convert_time_difference_to_str(self.duration * minute_length)} ' \
+            return f'Session: {self.name} with {convert_time_difference_to_str(self.duration * minute_length)} ' \
                    f'remaining'
         else:
-            return f'War session: {self.name} finishing up last war'
+            return f'Session: {self.name} finishing up last war'
 
     async def run(self):
-        while self.duration > 0 and self.name.lower() in warsessions:
+        while self.duration > 0 and self.name.lower() in sessions:
             if self.duration < (self.max_war + self.max_wait):
                 if self.duration > self.max_war:
                     war_duration = random.randint(self.min_war, self.max_war)
@@ -214,8 +214,8 @@ class WarSession:
             await post_message(self.message, f'!startwar {war_duration} {wait_duration} {name}', reply=False)
             await asyncio.sleep((war_duration+wait_duration+0.1)*minute_length)
 
-        if self.name in warsessions:
-            warsessions.pop(self.name)
+        if self.name in sessions:
+            sessions.pop(self.name)
 
 
 @client.event
@@ -254,8 +254,8 @@ async def on_message(message):
     if message_string.startswith('!end') and in_slagmark(message):
         name = message.content.split()
         if name[0][4:].lower() == 'session':
-            ending = warsessions
-            ending_str = 'war session'
+            ending = sessions
+            ending_str = 'session'
         else:
             ending = wars
             ending_str = 'war'
@@ -272,14 +272,15 @@ async def on_message(message):
         await post_message(message, msgout)
 
     if message_string.startswith('!startsession') and in_slagmark(message):
+        # TODO: verify duration > maxwait + maxwar
         msgin = message.content.split()
-        in_list, str_start = split_input_variables(msgin[1:], warsession_defaults)
+        in_list, str_start = split_input_variables(msgin[1:], session_defaults)
         try:
             if msgin[str_start]:
                 name = get_name_string(msgin[str_start:], message)
-                if name.lower() in warsessions:
-                    await message.reply('A war session with that name already exists, please use a different name or'
-                                        ' end the current war session.', mention_author=False)
+                if name.lower() in sessions:
+                    await message.reply('A session with that name already exists, please use a different name or '
+                                        'end the current session.', mention_author=False)
                     return
         except IndexError:
             await message.reply('Please include a name', mention_author=False)
@@ -288,9 +289,9 @@ async def on_message(message):
             await message.reply('Min values must be greater than max values', mention_author=False)
             return
 
-        warsession = WarSession(name, message, in_list)
-        warsessions[name.lower()] = warsession
-        await warsession.run()
+        session = Session(name, message, in_list)
+        sessions[name.lower()] = session
+        await session.run()
 
     if message_string.startswith('!list'):
         listings = message.content.split()
@@ -691,16 +692,16 @@ async def on_ready():
 wars = {}
 spam_dict = {}
 events = {}
-warsessions = {}
-params = {'wars': wars, 'spam': spam_dict, 'events': events, 'warsessions': warsessions}
-params_list = ['wars', 'spam', 'events', 'warsessions']
+sessions = {}
+params = {'wars': wars, 'spam': spam_dict, 'events': events, 'sessions': sessions}
+params_list = ['wars', 'spam', 'events', 'sessions']
 user_wordcounts = {}
 
 char_limit = 2000
 november = 11
 minute_length = 60
-warsession_defaults = [('duration', 90), ('difficulty', 0), ('max_war', 60), ('min_war', 5), ('max_wait', 10),
-                       ('min_wait', 1)]
+session_defaults = [('duration', 90), ('difficulty', 0), ('max_war', 30), ('min_war', 5), ('max_wait', 10),
+                    ('min_wait', 1)]
 spam_defaults = [('freq', 30)]
 war_defaults = [('repetitions', 1), ('war_len', 10), ('wait_len', 1)]
 war_len_intervals = [120, 60, 30, 20, 10, 5, 1, 0]
