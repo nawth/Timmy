@@ -251,26 +251,6 @@ async def on_message(message):
 
         await war.countdown()
 
-    if message_string.startswith('!end') and in_slagmark(message):
-        name = message.content.split()
-        if name[0][4:].lower() == 'session':
-            ending = sessions
-            ending_str = 'session'
-        else:
-            ending = wars
-            ending_str = 'war'
-
-        name = get_name_string(name[1:], message).lower()
-        if name in ending:
-            if ending[name].user == message.author or is_role(message.author, admin_roles):
-                ended = ending.pop(name)
-                msgout = f'{ending_str.capitalize()}: {ended.name} cancelled'
-            else:
-                msgout = f'You can only end your own {ending_str}.'
-        else:
-            msgout = f'No {ending_str} with that name.'
-        await post_message(message, msgout)
-
     if message_string.startswith('!startsession') and in_slagmark(message):
         msgin = message.content.split()
         in_list, str_start = split_input_variables(msgin[1:], session_defaults)
@@ -294,6 +274,26 @@ async def on_message(message):
         session = Session(name, message, in_list)
         sessions[name.lower()] = session
         await session.run()
+
+    if message_string.startswith('!end') and in_slagmark(message):
+        name = message.content.split()
+        if name[0][4:].lower() == 'session':
+            ending = sessions
+            ending_str = 'session'
+        else:
+            ending = wars
+            ending_str = 'war'
+
+        name = get_name_string(name[1:], message).lower()
+        if name in ending:
+            if ending[name].user == message.author or is_role(message.author, admin_roles):
+                ended = ending.pop(name)
+                msgout = f'{ending_str.capitalize()}: {ended.name} cancelled'
+            else:
+                msgout = f'You can only end your own {ending_str}.'
+        else:
+            msgout = f'No {ending_str} with that name.'
+        await post_message(message, msgout)
 
     if message_string.startswith('!list'):
         listings = message.content.split()
@@ -330,7 +330,6 @@ async def on_message(message):
         else:
             await message.author.add_roles(discord.utils.get(message.author.guild.roles, name='No-Countdown'))
 
-    # Wordcount
     if message_string.startswith('!words'):
         msgin = message.content.split()
         msgout = ''
@@ -382,31 +381,7 @@ async def on_message(message):
 
         await post_message(message, msgout)
 
-    # Roll
-    if (re.match('!d(?!\D)', message_string) is not None) and not in_slagmark(message):
-        try:
-            num = int(message.content[2:])
-        except (ValueError, IndexError):
-            num = 6
-        ran_num = random.randint(1, num)
-        await post_message(message, ran_num)
-
-    # Throw
-    if message_string.startswith('!foof') and not in_slagmark(message):
-        await message.channel.send('Righto... ')
-        await asyncio.sleep(1.5)
-        await message.channel.send('**Timmy** surreptitiously works his way over to the couch, looking ever so casual..'
-                                   '.')
-        await asyncio.sleep(5)
-        ran = random.randint(0, len(pillows) - 1)
-        try:
-            mention = message.mentions[0].mention
-        except IndexError:
-            mention = message.author.mention
-        await message.channel.send(f'**Timmy** grabs a {pillows[ran]} pillow, and throws it at {mention},'
-                                   ' hitting them squarely in the back of the head.')
-
-    # Events
+    # ML Exclusive
     if message_string.startswith('!makeevent') and is_role(message.author, admin_roles) and not in_slagmark(message):
         if '{' in message.content and message.content.endswith('}'):
             msgin = message.content.split('{')
@@ -450,7 +425,6 @@ async def on_message(message):
         await message.reply('Events must be formatted as !MakeEvent <message> <{YYYY-MM-DD HH:MM}>',
                             mention_author=False)
 
-    # Spam
     if message_string.startswith('!spam') and is_role(message.author, admin_roles) and not in_slagmark(message):
         msgin = message.content.split()
         freq_list, str_start = split_input_variables(msgin[1:], spam_defaults)
@@ -465,7 +439,6 @@ async def on_message(message):
         except IndexError:
             await message.reply('Please include a message', mention_author=False)
 
-    # stopping
     if message_string.startswith('!stop') and is_role(message.author, admin_roles):
         msgin = message.content.split()
         msg = get_name_string(msgin[1:], message)
@@ -496,50 +469,6 @@ async def on_message(message):
                     break
         await message.reply(msgout, mention_author=False)
 
-    # Hydra
-    if message_string.startswith('!hydra'):
-        msgin = message.content.split()
-        try:
-            year = int(msgin[1])
-        except (ValueError, IndexError):
-            year = 0
-
-        if year in year_end:
-            if year - 1 == year_before_first:
-                value_bottom = 0
-            else:
-                value_bottom = year_end[year - 1]
-            value = random.randint(value_bottom, year_end[year])
-        else:
-            value = random.randint(0, len(hydras) - 1)
-
-        await post_message(message, hydras[value])
-
-    if message_string.startswith('!abuse') and is_role(message.author, admin_roles):
-        k = 0
-        msg = ''
-        for i in range(6000):
-            msg += str(k)
-            k += 1
-            if k == 9:
-                k = 0
-        await post_message(message.channel, msg)
-
-    # !Remind
-    if message_string.startswith("!remind"):
-        msgin = message_string.split()
-        try:
-            wait = float(msgin[1]) * 60
-        except ValueError:
-            await message.reply('Please provide a number for how long until you want to be reminded in minutes',
-                                mention_author=False)
-            return
-
-        msgout = get_name_string(msgin[2:], message)
-        await asyncio.sleep(wait)
-        await post_message(message, msgout)
-
-    # Purge roles
     if message_string.startswith("!purge") and is_role(message.author, admin_roles):
         try:
             roles = message.role_mentions
@@ -578,6 +507,60 @@ async def on_message(message):
                 for r in apply_roles:
                     await member.add_roles(discord.utils.get(message.author.guild.roles, name=r.name))
 
+    # Misc
+    if (re.match('!d(?!\D)', message_string) is not None) and not in_slagmark(message):
+        try:
+            num = int(message.content[2:])
+        except (ValueError, IndexError):
+            num = 6
+        ran_num = random.randint(1, num)
+        await post_message(message, ran_num)
+
+    if message_string.startswith('!hydra'):
+        msgin = message.content.split()
+        try:
+            year = int(msgin[1])
+        except (ValueError, IndexError):
+            year = 0
+
+        if year in year_end:
+            if year - 1 == year_before_first:
+                value_bottom = 0
+            else:
+                value_bottom = year_end[year - 1]
+            value = random.randint(value_bottom, year_end[year])
+        else:
+            value = random.randint(0, len(hydras) - 1)
+
+        await post_message(message, hydras[value])
+
+    if message_string.startswith('!foof') and not in_slagmark(message):
+        await message.channel.send('Righto... ')
+        await asyncio.sleep(1.5)
+        await message.channel.send('**Timmy** surreptitiously works his way over to the couch, looking ever so casual..'
+                                   '.')
+        await asyncio.sleep(5)
+        ran = random.randint(0, len(pillows) - 1)
+        try:
+            mention = message.mentions[0].mention
+        except IndexError:
+            mention = message.author.mention
+        await message.channel.send(f'**Timmy** grabs a {pillows[ran]} pillow, and throws it at {mention},'
+                                   ' hitting them squarely in the back of the head.')
+
+    if message_string.startswith("!remind"):
+        msgin = message_string.split()
+        try:
+            wait = float(msgin[1]) * 60
+        except ValueError:
+            await message.reply('Please provide a number for how long until you want to be reminded in minutes',
+                                mention_author=False)
+            return
+
+        msgout = get_name_string(msgin[2:], message)
+        await asyncio.sleep(wait)
+        await post_message(message, msgout)
+
     # !reply
     elif message_string.startswith('!'):
         incommand = message.content.lower().split('!')
@@ -605,6 +588,18 @@ async def post_message(message, msgin, tts=False, reply=True, mention=False):
         messages.append(msgin)
         for msgout in messages:
             await channel.send(msgout, tts=tts, reference=message, mention_author=mention)
+
+
+def split_input_variables(list_of_strings, list_of_vars):
+    num_vars = len(list_of_vars) + 1
+    return_list = []
+    for i in range(0, len(list_of_vars)):
+        try:
+            return_list.append(float(list_of_strings[i]))
+        except (ValueError, IndexError):
+            return_list.append(list_of_vars[i][1])
+            num_vars -= 1
+    return return_list, num_vars
 
 
 def get_name_string(msg_list, message):
@@ -642,18 +637,6 @@ def convert_time_difference_to_str(diff):
             if diff >= 1:
                 msg += ', '
     return msg
-
-
-def split_input_variables(list_of_strings, list_of_vars):
-    num_vars = len(list_of_vars) + 1
-    return_list = []
-    for i in range(0, len(list_of_vars)):
-        try:
-            return_list.append(float(list_of_strings[i]))
-        except (ValueError, IndexError):
-            return_list.append(list_of_vars[i][1])
-            num_vars -= 1
-    return return_list, num_vars
 
 
 def in_war(name, war):
