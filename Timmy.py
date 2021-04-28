@@ -7,7 +7,6 @@ import re
 
 intents = discord.Intents.default()
 intents.members = True
-
 client = discord.Client(intents=intents)
 
 
@@ -222,6 +221,23 @@ class Session:
 
         if self.name in sessions:
             sessions.pop(self.name)
+
+
+class Reminder:
+    def __init__(self, reminder, message, wait):
+        self.reminder = reminder
+        self.message = message
+        self.wait = wait
+        self.end = time.time() + wait
+
+    def __str__(self):
+        return f"{self.message.author.name}'s Reminder: {self.reminder} in " \
+               f"{convert_time_difference_to_str(self.end - time.time())}"
+
+    async def post_reminder(self):
+        await asyncio.sleep(self.wait)
+        await post_message(self.message, self.reminder)
+        reminders.remove(self)
 
 
 @client.event
@@ -475,11 +491,11 @@ async def on_message(message):
                     break
         await message.reply(msgout, mention_author=False)
 
-    if message_string.startswith("!purge") and is_role(message.author, admin_roles):
+    if message_string.startswith('!purge') and is_role(message.author, admin_roles):
         try:
             roles = message.role_mentions
         except IndexError:
-            await message.reply("Please ping at least one role", mention_author=False)
+            await message.reply('Please ping at least one role', mention_author=False)
             return
         for role in roles:
             members = role.members
@@ -512,6 +528,27 @@ async def on_message(message):
             for member in members:
                 for r in apply_roles:
                     await member.add_roles(discord.utils.get(message.author.guild.roles, name=r.name))
+
+    # Reminders
+    if message_string.startswith('!remind'):
+        msgin = message_string.split()
+        try:
+            wait = float(msgin[1]) * minute_length
+        except ValueError:
+            await message.reply('Please provide a number for how long until you want to be reminded in minutes',
+                                mention_author=False)
+            return
+
+        msgout = get_name_string(msgin[2:], message)
+        reminder = Reminder(msgout, message, wait)
+        reminders.append(reminder)
+        await reminder.post_reminder()
+
+    if message_string.startswith('!rlist'):
+        msgout = ''
+        for r in reminders:
+            msgout += r.__str__() + '\n'
+        await post_message(message, msgout)
 
     # Misc
     if (re.match('!d(?!\D)', message_string) is not None) and not in_slagmark(message):
@@ -553,19 +590,6 @@ async def on_message(message):
             mention = message.author.mention
         await message.channel.send(f'**Timmy** grabs a {pillows[ran]} pillow, and throws it at {mention},'
                                    ' hitting them squarely in the back of the head.')
-
-    if message_string.startswith("!remind"):
-        msgin = message_string.split()
-        try:
-            wait = float(msgin[1]) * 60
-        except ValueError:
-            await message.reply('Please provide a number for how long until you want to be reminded in minutes',
-                                mention_author=False)
-            return
-
-        msgout = get_name_string(msgin[2:], message)
-        await asyncio.sleep(wait)
-        await post_message(message, msgout)
 
     # !reply
     elif message_string.startswith('!'):
@@ -667,7 +691,7 @@ async def on_ready():
         else:
             status = get_prompt()
 
-        await client.change_presence(activity=discord.Game(name=status))
+        await client.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=status))
         time_past_midnight = day[3] * 3600 + day[4] * 60 + day[5]
         time_to_midnight = 86400 - time_past_midnight
         await asyncio.sleep(time_to_midnight)
@@ -677,6 +701,7 @@ wars = {}
 spam_dict = {}
 events = {}
 sessions = {}
+reminders = []
 params = {'wars': wars, 'spam': spam_dict, 'events': events, 'sessions': sessions}
 params_list = ['wars', 'spam', 'events', 'sessions']
 user_wordcounts = {}
