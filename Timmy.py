@@ -50,7 +50,7 @@ class War:
         if self.wait_duration >= 5 * minute_length:
             delay_countdown = minute_length / 2
             await asyncio.sleep(self.wait_duration - delay_countdown)
-            if in_war(self.name, self):
+            if self.in_war():
                 user_mentions = await self.get_reactions_as_mentions(False)
                 await post_message(self.message, f'War: {self.name} starts in '
                                                  f'{convert_time_difference_to_str(delay_countdown)}. '
@@ -59,7 +59,7 @@ class War:
         else:
             await asyncio.sleep(self.wait_duration)
 
-        if in_war(self.name, self):
+        if self.in_war():
             await self.run_war()
 
     async def run_war(self):
@@ -71,7 +71,7 @@ class War:
         remaining_duration = self.war_duration
 
         for interval in war_len_intervals:
-            if not in_war(self.name, self):
+            if not self.in_war():
                 return
             if remaining_duration <= minute_length:
                 await asyncio.sleep(remaining_duration)
@@ -79,7 +79,7 @@ class War:
             if remaining_duration > interval:
                 diff = remaining_duration - interval
                 await asyncio.sleep(diff)
-                if not in_war(self.name, self):
+                if not self.in_war():
                     return
                 remaining_duration = interval
                 user_mentions = await self.get_reactions_as_mentions(True)
@@ -87,7 +87,7 @@ class War:
                                                  f'{convert_time_difference_to_str(remaining_duration)} '
                                                  f'remaining. {user_mentions}', mention=self.mention_author)
 
-        if in_war(self.name, self):
+        if self.in_war():
             user_mentions = await self.get_reactions_as_mentions(False)
             await post_message(self.message, f'War: {self.name} has ended! {user_mentions}', tts=True, mention=True)
 
@@ -112,6 +112,12 @@ class War:
                     continue
                 user_mention += ' ' + str(user.mention)
         return user_mention
+
+    def in_war(self):
+        if self.name.lower() in wars:
+            if wars[self.name.lower()] == self:
+                return True
+        return False
 
 
 class Event:
@@ -637,13 +643,6 @@ def convert_time_difference_to_str(diff):
             if diff >= 1:
                 msg += ', '
     return msg
-
-
-def in_war(name, war):
-    if name.lower() in wars:
-        if wars[name.lower()] == war:
-            return True
-    return False
 
 
 def get_prompt():
