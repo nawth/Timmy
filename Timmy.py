@@ -272,7 +272,6 @@ async def on_message(message):
         await post_message(message, msgout)
 
     if message_string.startswith('!startsession') and in_slagmark(message):
-        # TODO: verify duration > maxwait + maxwar
         msgin = message.content.split()
         in_list, str_start = split_input_variables(msgin[1:], session_defaults)
         try:
@@ -284,6 +283,9 @@ async def on_message(message):
                     return
         except IndexError:
             await message.reply('Please include a name', mention_author=False)
+            return
+        if in_list[0] < in_list[2] + in_list[4]:
+            await message.reply('Duration must be greater than the sum of the max values', mention_author=False)
             return
         if in_list[2] < in_list[3] or in_list[4] < in_list[5]:
             await message.reply('Min values must be greater than max values', mention_author=False)
