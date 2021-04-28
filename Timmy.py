@@ -12,7 +12,7 @@ client = discord.Client(intents=intents)
 
 
 class War:
-    def __init__(self, message, name, war_duration, wait_duration, repetitions):
+    def __init__(self, name, message, war_duration, wait_duration, repetitions):
         self.name = name
         self.user = message.author
         self.war_duration = war_duration
@@ -164,6 +164,60 @@ class Spam:
             await asyncio.sleep(self.frequency)
 
 
+class WarSession:
+    def __init__(self, name, message, in_list):
+        self.name = name
+        self.user = message.author
+        self.message = message
+        self.duration = in_list[0]
+        self.difficulty = in_list[1]
+        self.max_war = in_list[2]
+        self.min_war = in_list[3]
+        self.max_wait = in_list[4]
+        self.min_wait = in_list[5]
+
+    def __str__(self):
+        if self.duration > self.min_war:
+            return f'War session: {self.name} with {convert_time_difference_to_str(self.duration * minute_length)} ' \
+                   f'remaining'
+        else:
+            return f'War session: {self.name} finishing up last war'
+
+    async def run(self):
+        while self.duration > 0 and self.name.lower() in warsessions:
+            if self.duration < (self.max_war + self.max_wait):
+                if self.duration > self.max_war:
+                    war_duration = random.randint(self.min_war, self.max_war)
+                    self.duration -= war_duration
+                    if self.duration > self.max_wait:
+                        wait_duration = random.randint(self.min_wait, self.max_wait)
+                    elif self.duration > self.min_wait:
+                        wait_duration = random.randint(self.min_wait, self.duration)
+                    else:
+                        wait_duration = 1
+                        self.duration = 0
+                else:
+                    war_duration = self.duration
+                    wait_duration = 1
+                    self.duration = 0
+            else:
+                war_duration = random.randint(self.min_war, self.max_war)
+                self.duration -= war_duration
+                wait_duration = random.randint(self.min_wait, self.max_wait)
+                self.duration -= wait_duration
+
+            if self.difficulty > 0:
+                name = int(war_duration * (10 + random.randint(0, self.difficulty)/2) * random.randint(1,
+                                                                                                       self.difficulty))
+            else:
+                name = get_prompt()
+            await post_message(self.message, f'!startwar {war_duration} {wait_duration} {name}', reply=False)
+            await asyncio.sleep((war_duration+wait_duration+0.1)*minute_length)
+
+        if self.name in warsessions:
+            warsessions.pop(self.name)
+
+
 @client.event
 async def on_message(message):
     message_string = message.content.lower()
@@ -191,24 +245,52 @@ async def on_message(message):
         war_duration = war_ins[1] * minute_length
         wait_duration = war_ins[2] * minute_length
 
-        war = War(message, name, war_duration, wait_duration, repetitions)
+        war = War(name, message, war_duration, wait_duration, repetitions)
         await message.add_reaction('⚔')
         wars[name.lower()] = war
 
         await war.countdown()
 
-    if message_string.startswith('!endwar') and in_slagmark(message):
+    if message_string.startswith('!end') and in_slagmark(message):
         name = message.content.split()
-        name = get_name_string(name[1:], message).lower()
-        if name in wars:
-            if wars[name].user == message.author or is_role(message.author, admin_roles):
-                war = wars.pop(name)
-                msgout = f'War {war.name} cancelled'
-            else:
-                msgout = 'You can only end your own wars.'
+        if name[0][4:].lower() == 'session':
+            ending = warsessions
+            ending_str = 'war session'
         else:
-            msgout = 'No war with that name.'
+            ending = wars
+            ending_str = 'war'
+
+        name = get_name_string(name[1:], message).lower()
+        if name in ending:
+            if ending[name].user == message.author or is_role(message.author, admin_roles):
+                ended = ending.pop(name)
+                msgout = f'{ending_str.capitalize()}: {ended.name} cancelled'
+            else:
+                msgout = f'You can only end your own {ending_str}.'
+        else:
+            msgout = f'No {ending_str} with that name.'
         await post_message(message, msgout)
+
+    if message_string.startswith('!startsession') and in_slagmark(message):
+        msgin = message.content.split()
+        in_list, str_start = split_input_variables(msgin[1:], warsession_defaults)
+        try:
+            if msgin[str_start]:
+                name = get_name_string(msgin[str_start:], message)
+                if name.lower() in warsessions:
+                    await message.reply('A war session with that name already exists, please use a different name or'
+                                        ' end the current war session.', mention_author=False)
+                    return
+        except IndexError:
+            await message.reply('Please include a name', mention_author=False)
+            return
+        if in_list[2] < in_list[3] or in_list[4] < in_list[5]:
+            await message.reply('Min values must be greater than max values', mention_author=False)
+            return
+
+        warsession = WarSession(name, message, in_list)
+        warsessions[name.lower()] = warsession
+        await warsession.run()
 
     if message_string.startswith('!list'):
         listings = message.content.split()
@@ -388,7 +470,7 @@ async def on_message(message):
         for param in params:
             if msg in params[param]:
                 params[param].pop(msg)
-                msgout += f'{param}: {msg} stopped \n'
+                msgout += f'{param.capitalize()}: {msg} stopped \n'
         if msgout == '':
             msgout += 'No spam or event with that name'
         await post_message(message, msgout)
@@ -609,13 +691,16 @@ async def on_ready():
 wars = {}
 spam_dict = {}
 events = {}
-params = {'wars': wars, 'spam': spam_dict, 'events': events}
-params_list = ['wars', 'spam', 'events']
+warsessions = {}
+params = {'wars': wars, 'spam': spam_dict, 'events': events, 'warsessions': warsessions}
+params_list = ['wars', 'spam', 'events', 'warsessions']
 user_wordcounts = {}
 
 char_limit = 2000
 november = 11
 minute_length = 60
+warsession_defaults = [('duration', 90), ('difficulty', 0), ('max_war', 60), ('min_war', 5), ('max_wait', 10),
+                       ('min_wait', 1)]
 spam_defaults = [('freq', 30)]
 war_defaults = [('repetitions', 1), ('war_len', 10), ('wait_len', 1)]
 war_len_intervals = [120, 60, 30, 20, 10, 5, 1, 0]
