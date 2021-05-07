@@ -551,12 +551,25 @@ async def on_message(message):
         await post_message(message, msgout)
 
     # Misc
-    if (re.match('!d(?!\D)', message_string) is not None) and not in_slagmark(message):
-        try:
-            num = int(message.content[2:])
-        except (ValueError, IndexError):
+    if (re.match('!(\d*)d(?!\D)', message_string) is not None) and not in_slagmark(message):
+        if re.match('(\d+)', message_string[1:]) is not None:
+            amount = int(re.match('(\d+)', message_string[1:]).group())
+            str_start = len(str(amount)) + 2
+        else:
+            amount = 1
+            str_start = 2
+
+        if re.match('(\d+)', message_string[str_start:]) is not None:
+            num = int(re.match('(\d+)', message_string[str_start:]).group())
+        else:
             num = 6
-        ran_num = random.randint(1, num)
+
+        ran_num = ''
+        count = 0
+        for _ in range(amount):
+            count += 1
+            ran_num += f'{random.randint(1, int(num))}, '
+        ran_num = ran_num[:-2]
         await post_message(message, ran_num)
 
     if message_string.startswith('!hydra'):
