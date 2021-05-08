@@ -405,47 +405,53 @@ async def on_message(message):
 
     # ML Exclusive
     if message_string.startswith('!makeevent') and is_role(message.author, admin_roles) and not in_slagmark(message):
-        if '{' in message.content and message.content.endswith('}'):
-            msgin = message.content.split('{')
-            msg = (msgin[0]).split()
-            msg = get_name_string(msg[1:], message)
+        if '{' not in message.content or not message.content.endswith('}'):
+            await message.reply('Events must be formatted as !MakeEvent <message> <{YYYY-MM-DD HH:MM}>',
+                                mention_author=False)
+            return
 
-            if msg != '':
-                if msg[0:3] == 'tts':
-                    tts = True
-                    msg = msg[3:]
-                else:
-                    tts = False
+        msgin = message.content.split('{')
+        msg = (msgin[0]).split()
+        msg = get_name_string(msg[1:], message)
 
-                time_in = str(msgin[1]).replace('}', '')
-                time_in = time_in.split(', ')
+        if msg[0:3] == 'tts':
+            tts = True
+            msg = msg[3:]
+        else:
+            tts = False
 
-                for date in time_in:
-                    try:
-                        converted_time = (time.mktime(time.strptime(date, '%Y-%m-%d %H:%M')))
-                        if converted_time > time.time():
-                            if msg in events:
-                                if converted_time in events[msg]:
-                                    await post_message(message, f'Date {date} is already set for this event.')
-                                else:
-                                    events[msg].push(converted_time)
-                                    await post_message(message, f'Event {msg} added for {date}')
-                            else:
-                                events[msg] = Event(msg, message, tts)
-                                events[msg].push(converted_time)
-                                await post_message(message, f'Event {msg} set for {date}')
+        if msg == '':
+            await message.reply('Please include the name of the event', mention_author=False)
+            return
+
+        time_in = str(msgin[1]).replace('}', '')
+        time_in = time_in.split(', ')
+
+        msg_lower = msg.lower()
+
+        for date in time_in:
+            try:
+                converted_time = (time.mktime(time.strptime(date, '%Y-%m-%d %H:%M')))
+                if converted_time > time.time():
+                    if msg_lower in events:
+                        if converted_time in events[msg_lower]:
+                            await post_message(message, f'Date {date} is already set for this event.')
                         else:
-                            await post_message(message, f'Date {date} is in the past. Make sure you format it'
-                                                        f' correctly')
-                    except ValueError:
-                        await post_message(message, f'Date {date} was formatted incorrectly')
+                            events[msg_lower].push(converted_time)
+                            await post_message(message, f'Event {msg} added for {date}')
+                    else:
+                        events[msg_lower] = Event(msg, message, tts)
+                        events[msg_lower].push(converted_time)
+                        await post_message(message, f'Event {msg} set for {date}')
+                else:
+                    await post_message(message, f'Date {date} is in the past. Make sure you format it'
+                                                f' correctly')
+            except ValueError:
+                await post_message(message, f'Date {date} was formatted incorrectly')
 
-                if msg in events:
-                    await events[msg].run_event()
-                return
-
-        await message.reply('Events must be formatted as !MakeEvent <message> <{YYYY-MM-DD HH:MM}>',
-                            mention_author=False)
+        if msg_lower in events:
+            await events[msg_lower].run_event()
+            return
 
     if message_string.startswith('!spam') and is_role(message.author, admin_roles) and not in_slagmark(message):
         msgin = message.content.split()
@@ -456,14 +462,14 @@ async def on_message(message):
                 msg = get_name_string(msgin[str_start:], message)
                 if msg != '':
                     spam = Spam(message, msg, freq)
-                    spam_dict[msg] = spam
+                    spam_dict[msg.lower()] = spam
                     await spam.run()
         except IndexError:
             await message.reply('Please include a message', mention_author=False)
 
     if message_string.startswith('!stop') and is_role(message.author, admin_roles):
         msgin = message.content.split()
-        msg = get_name_string(msgin[1:], message)
+        msg = get_name_string(msgin[1:], message).lower()
         msgout = ''
         for param in params:
             if msg in params[param]:
@@ -472,17 +478,17 @@ async def on_message(message):
         if msgout == '':
             msgout += 'No spam or event with that name'
         await post_message(message, msgout)
-        # TODO: fix this to properly accommodate wars being saved with name.lower().
 
     if message_string.startswith('!nuke') and is_role(message.author, admin_roles):
         msgin = message.content.split()
         params_in = msgin[1:]
-        msgout = ''
 
         if len(params_in) == 0:
             params_in = params_list
         if params_in[0] not in params:
             return
+
+        msgout = ''
         for in_param in params_in:
             for param in params:
                 if in_param == param:
