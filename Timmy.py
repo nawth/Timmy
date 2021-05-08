@@ -329,7 +329,7 @@ async def on_message(message):
         if listings[0] not in params:
             return
 
-        if listings[0] == 'wars' and len(wars) == 1 and len(listings) == 1:
+        if listings == ['wars'] and len(wars) == 1:
             for key in wars:
                 war = wars[key]
             await post_message(war.message, war.__str__(False))
