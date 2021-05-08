@@ -545,9 +545,12 @@ async def on_message(message):
         await reminder.post_reminder()
 
     if message_string.startswith('!rlist'):
-        msgout = ''
-        for r in reminders:
-            msgout += r.__str__() + '\n'
+        if len(reminders) > 0:
+            msgout = ''
+            for r in reminders:
+                msgout += r.__str__() + '\n'
+        else:
+            msgout = 'No reminders active at this time'
         await post_message(message, msgout)
 
     # Misc
