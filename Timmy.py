@@ -7,6 +7,7 @@ import re
 
 intents = discord.Intents.default()
 intents.members = True
+intents.messages = True
 client = discord.Client(intents=intents)
 
 
@@ -267,6 +268,11 @@ async def on_message(message):
         war_duration = war_ins[1] * minute_length
         wait_duration = war_ins[2] * minute_length
 
+        if war_duration >= 1000:
+            await post_message(message, f"Assuming you want !words instead of a {int(war_ins[1])} min long war")
+            await do_words(message)
+            return
+
         war = War(name, message, war_duration, wait_duration, repetitions)
         await message.add_reaction('⚔')
         wars[name.lower()] = war
@@ -317,6 +323,7 @@ async def on_message(message):
             msgout = f'No {ending_str} with that name.'
         await post_message(message, msgout)
 
+    # TODO: Fix single war in another server
     if message_string.startswith('!list'):
         listings = message.content.split()
         listings[0] = listings[0][5:]
@@ -353,55 +360,7 @@ async def on_message(message):
             await message.author.add_roles(discord.utils.get(message.author.guild.roles, name='No-Countdown'))
 
     if message_string.startswith('!words'):
-        msgin = message.content.split()
-        msgout = ''
-
-        try:
-            user_wordcount = int(msgin[1])
-            if message.author in user_wordcounts:
-                words_written = user_wordcount - user_wordcounts[message.author]
-                msgout += f'You wrote {words_written} words. '
-                user_wordcounts.pop(message.author)
-                try:
-                    session_len = int(msgin[2])
-                    wpm = float(words_written / session_len)
-                    msgout += f'Your wpm is {round(wpm)}. '
-                except (IndexError, ValueError):
-                    pass
-
-                diff_to_goal = 0
-                has_alt_goal = True
-                try:
-                    alt_goal = int(msgin[3])
-                    diff_to_goal = user_wordcount - alt_goal
-                except ValueError:
-                    has_alt_goal = False
-                except IndexError:
-                    day = time.localtime()
-                    if day[1] == november:
-                        diff_to_goal = user_wordcount - get_word_count()
-                    else:
-                        has_alt_goal = False
-                finally:
-                    if has_alt_goal:
-                        msgout += "You're "
-                        if diff_to_goal == 0:
-                            msgout += 'exactly on target'
-                        else:
-                            msgout += str(abs(diff_to_goal))
-                            if diff_to_goal > 0:
-                                msgout += ' ahead of'
-                            elif diff_to_goal < 0:
-                                msgout += ' behind'
-                            msgout += ' the goal for the day'
-
-            else:
-                user_wordcounts[message.author] = user_wordcount
-
-        except (IndexError, ValueError):
-            msgout += 'Please provide a valid wordcount'
-
-        await post_message(message, msgout)
+        await do_words(message)
 
     # ML Exclusive
     if message_string.startswith('!makeevent') and is_role(message.author, admin_roles) and not in_slagmark(message):
@@ -560,7 +519,7 @@ async def on_message(message):
         await post_message(message, msgout)
 
     # Misc
-    if (re.match('!(\d*)d(?!\D)', message_string) is not None) and not in_slagmark(message):
+    if (re.match('!(\d*)d(?!\D)', message_string) is not None) and in_slagmark(message):
         if re.match('(\d+)', message_string[1:]) is not None:
             amount = int(re.match('(\d+)', message_string[1:]).group())
             str_start = len(str(amount)) + 2
@@ -622,6 +581,56 @@ async def on_message(message):
             except TypeError:
                 await post_message(message, commands[incommand[1]])
 
+async  def do_words(message):
+    msgin = message.content.split()
+    msgout = ''
+
+    try:
+        user_wordcount = int(msgin[1])
+        if message.author in user_wordcounts:
+            words_written = user_wordcount - user_wordcounts[message.author]
+            msgout += f'You wrote {words_written} words. '
+            user_wordcounts.pop(message.author)
+            try:
+                session_len = int(msgin[2])
+                wpm = float(words_written / session_len)
+                msgout += f'Your wpm is {round(wpm)}. '
+            except (IndexError, ValueError):
+                pass
+
+            diff_to_goal = 0
+            has_alt_goal = True
+            try:
+                alt_goal = int(msgin[3])
+                diff_to_goal = user_wordcount - alt_goal
+            except ValueError:
+                has_alt_goal = False
+            except IndexError:
+                day = time.localtime()
+                if day[1] == november:
+                    diff_to_goal = user_wordcount - get_word_count()
+                else:
+                    has_alt_goal = False
+            finally:
+                if has_alt_goal:
+                    msgout += "You're "
+                    if diff_to_goal == 0:
+                        msgout += 'exactly on target'
+                    else:
+                        msgout += str(abs(diff_to_goal))
+                        if diff_to_goal > 0:
+                            msgout += ' ahead of'
+                        elif diff_to_goal < 0:
+                            msgout += ' behind'
+                        msgout += ' the goal for the day'
+
+        else:
+            user_wordcounts[message.author] = user_wordcount
+
+    except (IndexError, ValueError):
+        msgout += 'Please provide a valid wordcount'
+
+    await post_message(message, msgout)
 
 async def post_message(message, msgin, tts=False, reply=True, mention=False):
     channel = message.channel
